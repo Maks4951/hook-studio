@@ -36,25 +36,21 @@ export default function Library({ winners, videos, videoNames, onPick, onVideo, 
                 <Metric label="Hook rate" value={`${w.metrics.hookRate}%`} />
                 <Metric label="ROMI" value={`${w.metrics.romi}%`} />
               </div>
-              {/* Ім'я файлу може бути дуже довгим: показуємо його окремим рядком з «…», повне — у підказці. */}
+              {/* Рядок відео завжди однакової висоти: іконка · назва або статус · дія.
+                  Довга назва скорочується посередині, повна — у підказці. */}
               <div className="video-row">
-                <span className="video-icon" aria-hidden="true">▶</span>
-                <span className="video-meta">
-                  <span className="row between center gap-s">
-                    <span className="xsmall muted">
-                      {videos[w.id] ? 'Відео' : videoNames[w.id] ? 'Відео треба обрати знову' : 'Відео не додано'}
-                    </span>
-                    <label className="file-pick small">
-                      <input type="file" accept="video/*" onChange={(e) => e.target.files[0] && onVideo(w.id, e.target.files[0])} />
-                      {videos[w.id] ? 'Замінити' : videoNames[w.id] ? 'Обрати' : '+ Додати'}
-                    </label>
-                  </span>
-                  {videoNames[w.id] && (
-                    <span className="video-name small" title={videoNames[w.id]}>{shortName(videoNames[w.id])}</span>
-                  )}
+                <span className={`video-icon ${videos[w.id] ? 'on' : ''}`} aria-hidden="true">▶</span>
+                <span className={`video-name small ${videos[w.id] ? '' : 'muted'}`} title={videoNames[w.id] || undefined}>
+                  {!videoNames[w.id] && 'Відео не додано'}
+                  {videoNames[w.id] && !videos[w.id] && <span className="vn-prefix">Оберіть знову:&nbsp;</span>}
+                  {videoNames[w.id] && <FileName name={videoNames[w.id]} />}
                 </span>
+                <label className="file-pick small">
+                  <input type="file" accept="video/*" onChange={(e) => e.target.files[0] && onVideo(w.id, e.target.files[0])} />
+                  {videos[w.id] ? 'Замінити' : 'Додати'}
+                </label>
               </div>
-              <button type="button" className="btn primary" onClick={() => onPick(w.id)}>Зробити модифікації →</button>
+              <button type="button" className="btn primary card-cta" onClick={() => onPick(w.id)}>Зробити модифікації →</button>
             </div>
           </article>
         ))}
@@ -63,11 +59,16 @@ export default function Library({ winners, videos, videoNames, onPick, onVideo, 
   );
 }
 
-// Скорочуємо посередині: «SockLock_winner_lo…1920_30fps.mp4». Відмінності у версіях файлів зазвичай у кінці назви.
-function shortName(name, max = 30) {
-  if (name.length <= max) return name;
-  const tail = 13;
-  return `${name.slice(0, max - tail - 1)}…${name.slice(-tail)}`;
+// Довга назва файлу: початок обрізається з «…» під ширину картки, а кінець (версія + розширення) видно завжди,
+// бо файли зазвичай відрізняються саме в кінці: «…_v2.mp4» vs «…_v3_final.mp4».
+function FileName({ name }) {
+  const tail = name.length > 14 ? name.slice(-10) : '';
+  return (
+    <>
+      <span className="vn-head">{tail ? name.slice(0, -10) : name}</span>
+      {tail && <span className="vn-tail">{tail}</span>}
+    </>
+  );
 }
 
 function Metric({ label, value }) {

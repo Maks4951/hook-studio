@@ -13,7 +13,7 @@ import {
 export default function Markup({ winner, timeline, videoUrl, onVideo, onDuration, onChange, onNext }) {
   const clock = useClock({ hasVideo: Boolean(videoUrl), duration: timeline.duration });
   const [selectedId, setSelectedId] = useState(timeline.segments[0]?.id);
-  const [showSafe, setShowSafe] = useState(true);
+  const [showSafe, setShowSafe] = useState(false);
   const [newType, setNewType] = useState('cta');
   const segments = sortedSegments(timeline.segments);
   const sel = timeline.segments.find((s) => s.id === selectedId);
@@ -82,10 +82,10 @@ export default function Markup({ winner, timeline, videoUrl, onVideo, onDuration
             <button type="button" className="btn outline" onClick={clock.toggle}>{clock.playing ? 'Пауза' : 'Відтворити'}</button>
             <label className="row gap-s center small check">
               <input type="checkbox" checked={showSafe} onChange={(e) => setShowSafe(e.target.checked)} />
-              Безпечні зони Reels
+              Показати, де інтерфейс Instagram закриває кадр
             </label>
           </div>
-          <p className="muted xsmall">Текст у кадрі можна перетягнути мишкою. Червоні зони — приблизно де інтерфейс Instagram перекриває кадр.</p>
+          <p className="muted xsmall">Текст у кадрі можна перетягнути мишкою. Затемнені зони — приблизно там, де в Reels лежать ім'я акаунта, кнопки й підпис: текст туди краще не ставити.</p>
         </div>
 
         {sel && (

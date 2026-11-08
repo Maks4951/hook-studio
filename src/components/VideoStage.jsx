@@ -42,9 +42,9 @@ export default function VideoStage({ clock, videoUrl, onDuration, segments, text
 
       {showSafe && (
         <div className="safe" aria-hidden="true">
-          <div className="safe-top">інтерфейс Reels</div>
-          <div className="safe-right" />
-          <div className="safe-bottom">підпис і кнопки</div>
+          <div className="safe-top">ім'я акаунта, «Reels»</div>
+          <div className="safe-right">кнопки</div>
+          <div className="safe-bottom">підпис, аудіо, кнопка «Learn more»</div>
         </div>
       )}
 
