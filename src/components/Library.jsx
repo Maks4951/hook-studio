@@ -36,12 +36,24 @@ export default function Library({ winners, videos, videoNames, onPick, onVideo, 
                 <Metric label="Hook rate" value={`${w.metrics.hookRate}%`} />
                 <Metric label="ROMI" value={`${w.metrics.romi}%`} />
               </div>
-              <label className="file-pick small">
-                <input type="file" accept="video/*" onChange={(e) => e.target.files[0] && onVideo(w.id, e.target.files[0])} />
-                {videos[w.id]
-                  ? `Відео: ${videoNames[w.id]} · замінити`
-                  : videoNames[w.id] ? `Оберіть «${videoNames[w.id]}» знову` : '+ Додати відео'}
-              </label>
+              {/* Ім'я файлу може бути дуже довгим: показуємо його окремим рядком з «…», повне — у підказці. */}
+              <div className="video-row">
+                <span className="video-icon" aria-hidden="true">▶</span>
+                <span className="video-meta">
+                  <span className="row between center gap-s">
+                    <span className="xsmall muted">
+                      {videos[w.id] ? 'Відео' : videoNames[w.id] ? 'Відео треба обрати знову' : 'Відео не додано'}
+                    </span>
+                    <label className="file-pick small">
+                      <input type="file" accept="video/*" onChange={(e) => e.target.files[0] && onVideo(w.id, e.target.files[0])} />
+                      {videos[w.id] ? 'Замінити' : videoNames[w.id] ? 'Обрати' : '+ Додати'}
+                    </label>
+                  </span>
+                  {videoNames[w.id] && (
+                    <span className="video-name small" title={videoNames[w.id]}>{shortName(videoNames[w.id])}</span>
+                  )}
+                </span>
+              </div>
               <button type="button" className="btn primary" onClick={() => onPick(w.id)}>Зробити модифікації →</button>
             </div>
           </article>
@@ -49,6 +61,13 @@ export default function Library({ winners, videos, videoNames, onPick, onVideo, 
       </div>
     </section>
   );
+}
+
+// Скорочуємо посередині: «SockLock_winner_lo…1920_30fps.mp4». Відмінності у версіях файлів зазвичай у кінці назви.
+function shortName(name, max = 30) {
+  if (name.length <= max) return name;
+  const tail = 13;
+  return `${name.slice(0, max - tail - 1)}…${name.slice(-tail)}`;
 }
 
 function Metric({ label, value }) {
