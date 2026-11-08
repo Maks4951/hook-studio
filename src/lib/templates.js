@@ -9,6 +9,7 @@
 // () => ...   — фіксований текст, однаковий для всіх переможців.
 
 import { normalizeVariant, dedupeByHook } from './variants.js';
+import { defaultTimeline } from './timeline.js';
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -161,10 +162,12 @@ function shuffle(arr, rand) {
 /**
  * Генерує до `count` варіантів для переможця.
  * 1) перемішує 15 прийомів; 2) коло 1 — перша трійка кожного прийому, коло 2 — друга;
- * 3) підставляє дані переможця; 4) відрізає перші `count`.
+ * 3) підставляє дані переможця і розкладає трійку по сегментах розмітки;
+ * 4) ті, що вміщаються в ліміти слів розмітки, ставить першими; 5) відрізає перші `count`.
+ * Шаблони пишуть лише хук, першу фразу і текст на екрані; CTA і свої сегменти лишаються як у переможця.
  * @returns {import('./schema.js').Variant[]}
  */
-export function generateFromTemplates(winner, count = 20, seed = 1) {
+export function generateFromTemplates(winner, count = 20, seed = 1, segments = defaultTimeline(winner).segments) {
   const order = shuffle(FORMULAS, rng(seed));
 
   const raw = [];
@@ -184,9 +187,12 @@ export function generateFromTemplates(winner, count = 20, seed = 1) {
   // Хук переможця не пропонуємо як «новий» варіант.
   const notOriginal = raw.filter((r) => r.hook.toLowerCase() !== winner.script.hook.toLowerCase());
 
-  const variants = notOriginal
-    .map((r, i) => normalizeVariant(r, { id: `${winner.id}-t${seed}-${i + 1}`, source: 'templates' }).variant)
-    .filter(Boolean);
+  const variants = dedupeByHook(notOriginal
+    .map((r, i) => normalizeVariant(r, { id: `${winner.id}-t${seed}-${i + 1}`, source: 'templates', segments }).variant)
+    .filter(Boolean));
 
-  return dedupeByHook(variants).slice(0, count);
+  // Під короткий сегмент частина заготовок задовга: спершу ті, що вміщаються, решта — в кінець з позначкою.
+  const fit = variants.filter((v) => !v.warnings.length);
+  const long = variants.filter((v) => v.warnings.length);
+  return [...fit, ...long].slice(0, count);
 }

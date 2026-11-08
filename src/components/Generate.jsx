@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { scriptToText } from '../data/winners.js';
 import { generateFromTemplates } from '../lib/templates.js';
 import { buildPrompt, parseModelResponse } from '../lib/prompt.js';
+import { sortedSegments, wordLimit, fmtTime } from '../lib/timeline.js';
 
 const MODES = [
   { key: 'templates', title: 'Шаблони формул', desc: 'Працює одразу, без LLM і без інтернету.', badge: 'Без LLM' },
@@ -10,16 +11,17 @@ const MODES = [
 ];
 
 // Екран 2: вхід (скрипт переможця) і вибір режиму генерації.
-export default function Generate({ winner, apiAvailable, mode, setMode, count, setCount, onGenerated }) {
+export default function Generate({ winner, timeline, apiAvailable, mode, setMode, count, setCount, onGenerated, onEditMarkup }) {
   const [pasted, setPasted] = useState('');
   const [errors, setErrors] = useState([]);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
-  const prompt = buildPrompt(winner, count);
+  const segments = sortedSegments(timeline.segments);
+  const prompt = buildPrompt(winner, count, timeline);
 
   const fromTemplates = () => {
     // Новий seed щоразу — інший порядок прийомів при повторній генерації.
-    onGenerated(generateFromTemplates(winner, count, Date.now() % 100000), 'templates');
+    onGenerated(generateFromTemplates(winner, count, Date.now() % 100000, timeline.segments), 'templates');
   };
 
   const copyPrompt = async () => {
@@ -33,7 +35,7 @@ export default function Generate({ winner, apiAvailable, mode, setMode, count, s
   };
 
   const fromClaude = () => {
-    const { variants, errors: errs } = parseModelResponse(pasted, { winnerId: winner.id, source: 'claude' });
+    const { variants, errors: errs } = parseModelResponse(pasted, { winnerId: winner.id, source: 'claude', segments: timeline.segments });
     setErrors(errs);
     if (variants.length) onGenerated(variants, 'claude');
   };
@@ -45,7 +47,7 @@ export default function Generate({ winner, apiAvailable, mode, setMode, count, s
       const r = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ winner, count }),
+        body: JSON.stringify({ winner: { ...winner, timeline }, count }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || `помилка ${r.status}`);
@@ -71,6 +73,22 @@ export default function Generate({ winner, apiAvailable, mode, setMode, count, s
           <span className="chip">ROMI {winner.metrics.romi}%</span>
         </div>
         <pre className="code">{scriptToText(winner.script)}</pre>
+
+        <div className="row between wrap gap-s center mt">
+          <h3 className="h3">Розмітка відео · {timeline.duration.toFixed(1)} с</h3>
+          <button type="button" className="link" onClick={onEditMarkup}>Змінити розмітку</button>
+        </div>
+        <div className="table-wrap">
+          <table className="compact">
+            <thead><tr><th>Сегмент</th><th>Час</th><th>Ліміт</th><th>Зараз</th></tr></thead>
+            <tbody>
+              {segments.map((s) => (
+                <tr key={s.id}><td className="strong">{s.label}</td><td>{fmtTime(s.start)}–{fmtTime(s.end)}</td><td>до {wordLimit(s)} слів</td><td className="muted">{s.currentText || '—'}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {!timeline.edited && <p className="muted xsmall">Розмітка автоматична. Для точних лімітів слів додайте відео і підсуньте межі на кроці «Розмітка».</p>}
       </section>
 
       <section className="card grow-side stack">
@@ -104,7 +122,7 @@ export default function Generate({ winner, apiAvailable, mode, setMode, count, s
 
         {mode === 'templates' && (
           <div className="stack-s">
-            <p className="muted small">15 прийомів × 2 зв'язні трійки (хук + перша фраза + текст на екрані). Максимум 30 варіантів.</p>
+            <p className="muted small">15 прийомів × 2 зв'язні трійки (хук + перша фраза + текст на екрані). Максимум 30 варіантів. Ті, що вміщаються в ліміти розмітки, йдуть першими. CTA і власні сегменти шаблони не змінюють — для них режим Claude.</p>
             <button type="button" className="btn primary big" onClick={fromTemplates}>Згенерувати {count} варіантів</button>
           </div>
         )}

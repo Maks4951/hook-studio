@@ -1,5 +1,7 @@
 // Експорт брифу і журналу пілоту у файли. Працює повністю в браузері.
 
+import { sortedSegments, fmtTime, wordLimit, STYLES, ALIGNS } from './timeline.js';
+
 /** Екранує значення для CSV: лапки подвоюються, усе береться в лапки. */
 const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
@@ -13,18 +15,28 @@ export function toCsv(rows, columns) {
   return [head, ...body].join('\n');
 }
 
-// Колонки брифу для дизайнера.
-export const BRIEF_COLUMNS = [
-  ['id', (v) => v.id],
-  ['winner_id', (v) => v.winnerId],
-  ['winner_name', (v) => v.winnerName],
-  ['angle', (v) => v.angle],
-  ['hook_0_3s', (v) => v.hook],
-  ['first_line_3_8s', (v) => v.firstLine],
-  ['on_screen_8_15s', (v) => v.onScreen],
-  ['what_changed', (v) => v.whatChanged],
-  ['source', (v) => v.source],
-];
+/** Колонки брифу будуються з розмітки: по колонці на кожен сегмент, у назві — таймкод. */
+export function briefColumns(segments) {
+  return [
+    ['id', (v) => v.id],
+    ['winner_name', (v) => v.winnerName],
+    ['angle', (v) => v.angle],
+    ...sortedSegments(segments).map((s) => [`${s.label} ${fmtTime(s.start)}-${fmtTime(s.end)}`, (v) => v.texts?.[s.id] ?? s.currentText]),
+    ['what_changed', (v) => v.whatChanged],
+    ['source', (v) => v.source],
+  ];
+}
+
+/** Розмітка для дизайнера: де й як ставити кожен текст. */
+export function markupRows(segments) {
+  return sortedSegments(segments).map((s) => ({
+    segment: s.label,
+    time: `${fmtTime(s.start)}–${fmtTime(s.end)}`,
+    position: `x ${s.pos.x}%, y ${s.pos.y}%`,
+    style: `${STYLES[s.style]}, ${s.size}, ${ALIGNS[s.align].toLowerCase()}`,
+    limit: `${wordLimit(s)} слів`,
+  }));
+}
 
 // Колонки журналу пілоту: з них рахуємо метрики успіху.
 export const SESSION_COLUMNS = [

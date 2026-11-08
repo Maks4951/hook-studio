@@ -1,15 +1,18 @@
-import { toCsv, download, BRIEF_COLUMNS, SESSION_COLUMNS, formatDuration } from '../lib/export.js';
+import { toCsv, download, briefColumns, markupRows, SESSION_COLUMNS, formatDuration } from '../lib/export.js';
+import { sortedSegments, fmtTime } from '../lib/timeline.js';
 
 const TARGET_APPROVE = 30; // % схвалених варіантів — ціль пілоту з пітчу
 
 // Екран 4: бриф для дизайнера (вихід утиліти) + журнал пілоту (метрики успіху).
-export default function Brief({ session, winner, sessions, onFinish, onNew }) {
+export default function Brief({ session, winner, timeline, sessions, onFinish, onNew }) {
+  const segments = sortedSegments(timeline.segments);
+  const markup = markupRows(segments);
   const approvedList = session.variants
     .filter((v) => session.decisions[v.id] === 'yes')
     .map((v) => ({ ...v, winnerId: session.winnerId, winnerName: winner?.name }));
   const total = session.variants.length;
   const rate = total ? Math.round((approvedList.length / total) * 100) : 0;
-  const csv = toCsv(approvedList, BRIEF_COLUMNS);
+  const csv = toCsv(approvedList, briefColumns(segments));
   const stamp = new Date(session.startedAt).toISOString().slice(0, 10);
 
   // Агрегати по журналу пілоту.
@@ -45,16 +48,27 @@ export default function Brief({ session, winner, sessions, onFinish, onNew }) {
         <div className="card table-wrap">
           <table>
             <thead>
-              <tr><th>#</th><th>Кут</th><th>Хук · 0–3 с</th><th>Перша фраза · 3–8 с</th><th>Текст на екрані · 8–15 с</th></tr>
+              <tr><th>#</th><th>Кут</th>{segments.map((s) => <th key={s.id}>{s.label} · {fmtTime(s.start)}–{fmtTime(s.end)}</th>)}</tr>
             </thead>
             <tbody>
               {approvedList.map((v, i) => (
-                <tr key={v.id}><td className="muted">{i + 1}</td><td>{v.angle}</td><td className="strong">{v.hook}</td><td>{v.firstLine}</td><td>{v.onScreen}</td></tr>
+                <tr key={v.id}><td className="muted">{i + 1}</td><td>{v.angle}</td>
+                  {segments.map((s, j) => <td key={s.id} className={j === 0 ? 'strong' : ''}>{v.texts?.[s.id] ?? s.currentText}</td>)}</tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      <section className="card stack-s">
+        <h2 className="h3">Розмітка: де і як ставити текст</h2>
+        <div className="table-wrap">
+          <table className="compact">
+            <thead><tr><th>Сегмент</th><th>Час</th><th>Позиція в кадрі</th><th>Вигляд</th><th>Ліміт</th></tr></thead>
+            <tbody>{markup.map((m) => <tr key={m.segment + m.time}><td className="strong">{m.segment}</td><td>{m.time}</td><td>{m.position}</td><td>{m.style}</td><td>{m.limit}</td></tr>)}</tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="card stack-s">
         <div className="row between wrap gap-s center">
@@ -63,7 +77,7 @@ export default function Brief({ session, winner, sessions, onFinish, onNew }) {
             <button type="button" className="btn primary" disabled={!approvedList.length}
               onClick={() => download(`brief_${session.winnerId}_${stamp}.csv`, csv)}>Завантажити CSV</button>
             <button type="button" className="btn outline" disabled={!approvedList.length}
-              onClick={() => download(`brief_${session.winnerId}_${stamp}.json`, JSON.stringify({ winner: winner?.name, variants: approvedList }, null, 2), 'application/json')}>Завантажити JSON</button>
+              onClick={() => download(`brief_${session.winnerId}_${stamp}.json`, JSON.stringify({ winner: winner?.name, timeline, variants: approvedList }, null, 2), 'application/json')}>Завантажити JSON</button>
           </div>
         </div>
         <pre className="code scroll">{csv}</pre>

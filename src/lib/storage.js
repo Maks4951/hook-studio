@@ -2,7 +2,8 @@
 // На Vercel немає постійного диска, тому для MVP дані живуть у браузері користувача,
 // а назовні виходять через експорт CSV/JSON. Наступна ітерація — база (Airtable / Postgres).
 
-const KEY = 'hook-studio:v1';
+// v2: варіанти зберігають текст по сегментах (texts), старі збереження несумісні.
+const KEY = 'hook-studio:v2';
 
 export function loadState() {
   try {

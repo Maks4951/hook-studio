@@ -2,17 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { SEED_WINNERS } from './data/winners.js';
 import { loadState, saveState } from './lib/storage.js';
 import { formatDuration } from './lib/export.js';
+import { getTimeline, fitToDuration } from './lib/timeline.js';
 import { useActiveTimer } from './hooks/useActiveTimer.js';
 import Library from './components/Library.jsx';
+import Markup from './components/Markup.jsx';
 import Generate from './components/Generate.jsx';
 import Review from './components/Review.jsx';
 import Brief from './components/Brief.jsx';
 
 const STEPS = [
   ['library', '1 · Бібліотека'],
-  ['generate', '2 · Генерація'],
-  ['review', '3 · Перегляд'],
-  ['brief', '4 · Бриф'],
+  ['markup', '2 · Розмітка'],
+  ['generate', '3 · Генерація'],
+  ['review', '4 · Перегляд'],
+  ['brief', '5 · Бриф'],
 ];
 
 // Увесь стан застосунку. Зберігається в localStorage (крім відеофайлів).
@@ -22,6 +25,7 @@ function initialState() {
     designer: '',
     customWinners: [],   // переможці, додані через форму
     videoNames: {},      // winnerId → ім'я відеофайлу (сам файл у пам'яті браузера)
+    timelines: {},       // winnerId → розмітка відео (сегменти, позиції, стилі)
     winnerId: null,      // обраний переможець
     mode: 'templates',   // templates | claude | api
     count: 20,
@@ -50,15 +54,17 @@ export default function App() {
 
   const winners = useMemo(() => [...SEED_WINNERS, ...state.customWinners], [state.customWinners]);
   const winner = winners.find((w) => w.id === state.winnerId) || null;
+  const timeline = winner ? getTimeline(winner, state.timelines) : null;
   const session = state.session;
   const sessionWinner = session ? winners.find((w) => w.id === session.winnerId) : null;
+  const sessionTimeline = sessionWinner ? getTimeline(sessionWinner, state.timelines) : null;
 
   // Таймер іде, поки сесія не завершена (бриф не сформовано).
   useActiveTimer(Boolean(session && !session.finishedAt), () =>
     set((s) => ({ session: s.session && { ...s.session, activeSec: s.session.activeSec + 1 } })));
 
   // ---- дії ----
-  const pickWinner = (id) => set({ winnerId: id, screen: 'generate' });
+  const pickWinner = (id) => set({ winnerId: id, screen: 'markup' });
 
   const setVideo = (winnerId, file) => {
     setVideos((v) => {
@@ -66,6 +72,15 @@ export default function App() {
       return { ...v, [winnerId]: URL.createObjectURL(file) };
     });
     set((s) => ({ videoNames: { ...s.videoNames, [winnerId]: file.name } }));
+  };
+
+  const setTimeline = (winnerId, tl) => set((s) => ({ timelines: { ...s.timelines, [winnerId]: tl } }));
+
+  // Відео завантажилось і ми знаємо його тривалість: підганяємо розмітку.
+  const onDuration = (w, duration) => {
+    if (!Number.isFinite(duration) || duration <= 0) return;
+    const cur = getTimeline(w, state.timelines);
+    if (Math.abs(cur.duration - duration) > 0.05) setTimeline(w.id, fitToDuration(cur, w, duration));
   };
 
   const addWinner = (w) => set((s) => ({ customWinners: [...s.customWinners, w] }));
@@ -92,8 +107,14 @@ export default function App() {
     return { session: { ...s.session, selectedId: id, decisions: { ...s.session.decisions, [id]: cur === value ? undefined : value } } };
   });
 
-  const editVariant = (id, patch) => set((s) => ({
-    session: { ...s.session, variants: s.session.variants.map((v) => (v.id === id ? { ...v, ...patch, edited: true } : v)) },
+  // Правка тексту одного сегмента у варіанті.
+  const editVariant = (id, segId, text) => set((s) => ({
+    session: {
+      ...s.session,
+      variants: s.session.variants.map((v) => (v.id === id
+        ? { ...v, texts: { ...v.texts, [segId]: text }, unchanged: v.unchanged.filter((x) => x !== segId), edited: true }
+        : v)),
+    },
   }));
 
   // «Сформувати бриф»: зупиняємо таймер і пишемо сесію в журнал пілоту.
@@ -146,22 +167,32 @@ export default function App() {
             onPick={pickWinner} onVideo={setVideo} onAdd={addWinner} />
         )}
 
+        {state.screen === 'markup' && (winner ? (
+          <Markup key={winner.id} winner={winner} timeline={timeline} videoUrl={videos[winner.id]}
+            onVideo={(file) => setVideo(winner.id, file)} onDuration={(d) => onDuration(winner, d)}
+            onChange={(tl) => setTimeline(winner.id, tl)} onNext={() => go('generate')} />
+        ) : <Empty text="Спершу оберіть переможця в бібліотеці." action="До бібліотеки" onAction={() => go('library')} />)}
+
         {state.screen === 'generate' && (winner ? (
-          <Generate winner={winner} apiAvailable={apiAvailable}
+          <Generate winner={winner} timeline={timeline} apiAvailable={apiAvailable}
             mode={state.mode} setMode={(mode) => set({ mode })}
             count={state.count} setCount={(count) => set({ count })}
-            onGenerated={startSession} />
+            onGenerated={startSession} onEditMarkup={() => go('markup')} />
         ) : <Empty text="Спершу оберіть переможця в бібліотеці." action="До бібліотеки" onAction={() => go('library')} />)}
 
         {state.screen === 'review' && (session ? (
-          <Review session={session} winner={sessionWinner} videoUrl={videos[session.winnerId]}
+          <Review session={session} winner={sessionWinner} timeline={sessionTimeline} videoUrl={videos[session.winnerId]}
             elapsed={formatDuration(session.activeSec)}
             onSelect={(id) => updateSession({ selectedId: id })}
-            onDecide={decide} onEdit={editVariant} onFinish={finishSession} />
+            onDecide={decide} onEdit={editVariant} onFinish={finishSession}
+            onMoveText={(segId, pos) => setTimeline(session.winnerId, {
+              ...sessionTimeline, edited: true,
+              segments: sessionTimeline.segments.map((s) => (s.id === segId ? { ...s, pos } : s)),
+            })} />
         ) : <Empty text="Варіантів ще немає. Оберіть переможця і згенеруйте їх." action="До генерації" onAction={() => go(winner ? 'generate' : 'library')} />)}
 
         {state.screen === 'brief' && (session ? (
-          <Brief session={session} winner={sessionWinner} sessions={state.sessions}
+          <Brief session={session} winner={sessionWinner} timeline={sessionTimeline} sessions={state.sessions}
             onFinish={finishSession} onNew={() => set({ screen: 'library', winnerId: null })} />
         ) : <Empty text="Бриф з'явиться після перегляду варіантів." action="До бібліотеки" onAction={() => go('library')} />)}
       </main>

@@ -2,11 +2,12 @@
 // файл api/generate.js автоматично стає ендпоінтом /api/generate.
 //
 // GET  /api/generate  → { available: true|false, model }  — чи налаштований ключ (інтерфейс вмикає/вимикає режим)
-// POST /api/generate  → { variants, errors }               — тіло: { winner, count }
+// POST /api/generate  → { variants, errors }               — тіло: { winner (+ winner.timeline), count }
 //
 // Ключ живе лише на сервері (змінна оточення ANTHROPIC_API_KEY) і ніколи не потрапляє в браузер.
 
 import { buildPrompt, parseModelResponse } from '../src/lib/prompt.js';
+import { defaultTimeline, validateTimeline } from '../src/lib/timeline.js';
 
 export const config = { maxDuration: 60 }; // генерація 20–30 варіантів може тривати 15–30 с
 
@@ -21,6 +22,7 @@ export function validateInput(body) {
   for (const k of ['hook', 'firstLine', 'onScreen']) if (typeof winner.script[k] !== 'string') return `winner.script.${k} має бути рядком`;
   const n = Number(count);
   if (!Number.isInteger(n) || n < 1 || n > 30) return 'count має бути цілим числом від 1 до 30';
+  if (winner.timeline) return validateTimeline(winner.timeline);
   return null;
 }
 
@@ -44,6 +46,8 @@ export default async function handler(req, res, { fetchImpl = fetch } = {}) {
 
   const { winner } = body;
   const count = Number(body.count);
+  // Розмітка відео приходить разом з переможцем; немає — стандартна 0–3 / 3–8 / 8–15 с.
+  const timeline = winner.timeline || defaultTimeline(winner);
 
   // Обмежуємо час очікування, щоб функція не зависла до ліміту Vercel.
   const ctrl = new AbortController();
@@ -61,7 +65,7 @@ export default async function handler(req, res, { fetchImpl = fetch } = {}) {
       body: JSON.stringify({
         model: MODEL(),
         max_tokens: 4000, // 30 варіантів × ~100 токенів з запасом
-        messages: [{ role: 'user', content: buildPrompt(winner, count) }],
+        messages: [{ role: 'user', content: buildPrompt(winner, count, timeline) }],
       }),
     });
 
@@ -73,7 +77,7 @@ export default async function handler(req, res, { fetchImpl = fetch } = {}) {
     const data = await r.json();
     // Відповідь Anthropic: { content: [{ type: 'text', text: '...' }], usage: {...} }
     const text = (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n');
-    const { variants, errors } = parseModelResponse(text, { winnerId: winner.id, source: 'api' });
+    const { variants, errors } = parseModelResponse(text, { winnerId: winner.id, source: 'api', segments: timeline.segments });
 
     return res.status(200).json({ variants, errors, model: data.model, usage: data.usage });
   } catch (e) {

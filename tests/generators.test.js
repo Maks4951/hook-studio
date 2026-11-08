@@ -20,22 +20,24 @@ test('шаблони: 30 варіантів без дублікатів хукі
 test('шаблони: кожен варіант має всі поля і не повторює хук переможця', () => {
   for (const w of SEED_WINNERS) {
     for (const v of generateFromTemplates(w, 30)) {
-      for (const k of ['angle', 'hook', 'firstLine', 'onScreen', 'whatChanged']) assert.ok(v[k], `${v.id}: порожнє ${k}`);
+      for (const k of ['angle', 'hook', 'whatChanged']) assert.ok(v[k], `${v.id}: порожнє ${k}`);
+      for (const k of ['hook', 'firstLine', 'onScreen']) assert.ok(v.texts[k], `${v.id}: порожній сегмент ${k}`);
+      assert.deepEqual(v.unchanged, []);
       assert.notEqual(v.hook.toLowerCase(), w.script.hook.toLowerCase());
     }
   }
 });
 
-test('шаблони: хуки до 8 слів і текст на екрані до 7 слів у всіх тестових переможців', () => {
+test('шаблони: на стандартній розмітці (0–3 / 3–8 / 8–15 с) усі варіанти вміщаються в ліміти', () => {
   for (const w of SEED_WINNERS) {
     const long = generateFromTemplates(w, 30).filter((v) => v.warnings.length);
-    assert.deepEqual(long.map((v) => `${v.hook} | ${v.onScreen} | ${v.warnings}`), [], `${w.id}: порушено ліміт`);
+    assert.deepEqual(long.map((v) => `${v.hook} | ${v.warnings}`), [], `${w.id}: порушено ліміт`);
   }
 });
 
 test('шаблони: кожна трійка має свою першу фразу (без повторів у наборі)', () => {
   const v = generateFromTemplates(w1, 30);
-  assert.equal(new Set(v.map((x) => x.firstLine)).size, v.length);
+  assert.equal(new Set(v.map((x) => x.texts.firstLine)).size, v.length);
 });
 
 test('шаблони: кожен прийом має рівно 2 повні трійки', () => {
@@ -64,7 +66,8 @@ test('промпт: містить скрипт, метрики, кількіс�
   assert.match(p, /Where do all the socks go\?/);
   assert.match(p, /hook rate 38%/);
   assert.match(p, /Write 25 variations/);
-  assert.match(p, /"first_line"/);
+  assert.match(p, /"texts":\{"hook":"","firstLine":"","onScreen":""\}/);
+  assert.match(p, /"hook" \| hook .* \| 0\.0–3\.0s \(3\.0s\) \| max 8 words/);
 });
 
 test('розбір: чистий JSON', () => {
@@ -72,7 +75,7 @@ test('розбір: чистий JSON', () => {
     '{"variants":[{"angle":"POV","hook":"POV: one sock again","first_line":"Every wash.","on_screen":"Pairs stay pairs","what_changed":"POV"}]}',
     { winnerId: 'w1' });
   assert.equal(variants.length, 1);
-  assert.equal(variants[0].firstLine, 'Every wash.');
+  assert.equal(variants[0].texts.firstLine, 'Every wash.');
   assert.deepEqual(errors, []);
 });
 
