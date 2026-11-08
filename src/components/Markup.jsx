@@ -5,7 +5,7 @@ import { useClock } from '../hooks/useClock.js';
 import { wordCount } from '../lib/variants.js';
 import {
   SEGMENT_TYPES, STYLES, SIZES, ALIGNS, SNAP_Y, MIN_SEG,
-  makeSegment, nextSegmentId, sortedSegments, wordLimit, defaultTimeline, r1, fmtTime,
+  sortedSegments, wordLimit, defaultTimeline, r1, fmtTime,
 } from '../lib/timeline.js';
 
 // Екран «Розмітка»: дизайнер один раз позначає, де в цьому відео звучить/з'являється кожен текст,
@@ -13,8 +13,6 @@ import {
 export default function Markup({ winner, timeline, videoUrl, onVideo, onDuration, onChange, onNext }) {
   const clock = useClock({ hasVideo: Boolean(videoUrl), duration: timeline.duration });
   const [selectedId, setSelectedId] = useState(timeline.segments[0]?.id);
-  const [showSafe, setShowSafe] = useState(false);
-  const [newType, setNewType] = useState('cta');
   const segments = sortedSegments(timeline.segments);
   const sel = timeline.segments.find((s) => s.id === selectedId);
 
@@ -31,22 +29,6 @@ export default function Markup({ winner, timeline, videoUrl, onVideo, onDuration
     const start = field === 'start' ? Math.min(Math.max(0, v), sel.end - MIN_SEG) : sel.start;
     const end = field === 'end' ? Math.max(Math.min(timeline.duration, v), sel.start + MIN_SEG) : sel.end;
     updateSeg(sel.id, { start: r1(start), end: r1(end) });
-  };
-
-  const addSegment = () => {
-    const id = nextSegmentId(timeline.segments, newType);
-    const start = r1(Math.min(clock.t, timeline.duration - 2));
-    const text = newType === 'cta' ? winner.script.cta : '';
-    const seg = makeSegment(newType, start, Math.min(timeline.duration, start + 2), text, id);
-    if (id !== newType) seg.label = `${seg.label} ${id.replace(newType, '')}`;
-    onChange({ ...timeline, edited: true, segments: [...timeline.segments, seg] });
-    setSelectedId(id);
-  };
-
-  const removeSeg = () => {
-    const rest = timeline.segments.filter((s) => s.id !== sel.id);
-    onChange({ ...timeline, edited: true, segments: rest });
-    setSelectedId(rest[0]?.id);
   };
 
   const reset = () => {
@@ -77,15 +59,11 @@ export default function Markup({ winner, timeline, videoUrl, onVideo, onDuration
           <VideoStage clock={clock} videoUrl={videoUrl} onDuration={onDuration}
             segments={timeline.segments} textFor={(s) => s.currentText || s.label}
             editable selectedId={selectedId} onSelect={setSelectedId}
-            onMove={(id, pos) => updateSeg(id, { pos })} showSafe={showSafe} />
+            onMove={(id, pos) => updateSeg(id, { pos })} />
           <div className="row wrap gap-s center">
             <button type="button" className="btn outline" onClick={clock.toggle}>{clock.playing ? 'Пауза' : 'Відтворити'}</button>
-            <label className="row gap-s center small check">
-              <input type="checkbox" checked={showSafe} onChange={(e) => setShowSafe(e.target.checked)} />
-              Показати, де інтерфейс Instagram закриває кадр
-            </label>
           </div>
-          <p className="muted xsmall">Текст у кадрі можна перетягнути мишкою. Затемнені зони — приблизно там, де в Reels лежать ім'я акаунта, кнопки й підпис: текст туди краще не ставити.</p>
+          <p className="muted xsmall">Текст у кадрі можна перетягнути мишкою.</p>
         </div>
 
         {sel && (
@@ -152,9 +130,6 @@ export default function Markup({ winner, timeline, videoUrl, onVideo, onDuration
               </fieldset>
             </div>
 
-            {timeline.segments.length > 1 && (
-              <button type="button" className="link danger" onClick={removeSeg}>Видалити сегмент</button>
-            )}
           </section>
         )}
       </div>
@@ -162,13 +137,7 @@ export default function Markup({ winner, timeline, videoUrl, onVideo, onDuration
       <section className="card stack-s">
         <div className="row between wrap gap-s center">
           <h2 className="h3">Таймлайн · {timeline.duration.toFixed(1)} с {timeline.edited ? '' : '· автоматична розмітка'}</h2>
-          <div className="row wrap gap-s center">
-            <select value={newType} onChange={(e) => setNewType(e.target.value)} aria-label="Тип нового сегмента">
-              {Object.entries(SEGMENT_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
-            <button type="button" className="btn outline" disabled={timeline.segments.length >= 10} onClick={addSegment}>+ Сегмент тут</button>
-            <button type="button" className="btn outline" onClick={reset}>Скинути розмітку</button>
-          </div>
+          <button type="button" className="btn outline" onClick={reset}>Скинути розмітку</button>
         </div>
         <TimelineEditor duration={timeline.duration} t={clock.t} segments={segments} selectedId={selectedId}
           onSelect={setSelectedId} onChange={updateSeg} onSeek={(x) => { clock.pause(); clock.seek(x); }} />

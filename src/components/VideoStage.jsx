@@ -8,7 +8,7 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
  * Текст — HTML-шар поверх відео (рендерити MP4 не треба). В режимі editable текст можна тягнути мишкою:
  * позиція зберігається у % від кадру, тож однаково працює на будь-якому розмірі екрана.
  */
-export default function VideoStage({ clock, videoUrl, onDuration, segments, textFor, editable, selectedId, onSelect, onMove, showSafe }) {
+export default function VideoStage({ clock, videoUrl, onDuration, segments, textFor, editable, selectedId, onSelect, onMove }) {
   const stageRef = useRef(null);
   const drag = useRef(null);
   const { t } = clock;
@@ -38,14 +38,6 @@ export default function VideoStage({ clock, videoUrl, onDuration, segments, text
           onLoadedMetadata={(e) => onDuration?.(e.currentTarget.duration)} />
       ) : (
         <div className="phone-placeholder small">відео переможця<br />(додайте файл, щоб розмітити справжні таймінги)</div>
-      )}
-
-      {showSafe && (
-        <div className="safe" aria-hidden="true">
-          <div className="safe-top">ім'я акаунта, «Reels»</div>
-          <div className="safe-right">кнопки</div>
-          <div className="safe-bottom">підпис, аудіо, кнопка «Learn more»</div>
-        </div>
       )}
 
       {active.map((s) => {

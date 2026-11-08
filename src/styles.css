@@ -156,11 +156,6 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--acc
 .ov.draggable { cursor: grab; }
 .ov.draggable:active { cursor: grabbing; }
 .ov.sel { outline: 2px dashed #8fb0ff; outline-offset: 3px; }
-.safe { position: absolute; inset: 0; pointer-events: none; }
-.safe > div { position: absolute; border: 1.5px dashed rgba(255, 255, 255, 0.85); background: rgba(15, 18, 26, 0.45); color: #fff; font-size: 10px; font-weight: 600; line-height: 1.2; display: flex; align-items: center; justify-content: center; text-align: center; padding: 4px; }
-.safe-top { top: 0; left: 0; right: 0; height: 11%; border-top: none !important; border-left: none !important; border-right: none !important; }
-.safe-right { top: 45%; bottom: 22%; right: 0; width: 15%; border-right: none !important; }
-.safe-bottom { bottom: 0; left: 0; right: 0; height: 22%; border-bottom: none !important; border-left: none !important; border-right: none !important; }
 .phone-bar { position: absolute; left: 14px; right: 14px; bottom: 16px; color: #e8eaee; display: flex; flex-direction: column; gap: 6px; }
 .progress { height: 4px; background: #3a4152; border-radius: 2px; overflow: hidden; }
 .progress div { height: 4px; background: #fff; }
@@ -173,9 +168,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--acc
 .field.num input { width: 110px; }
 .seg-group { border: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .seg-group legend { margin-bottom: 6px; padding: 0; }
-.check input { min-height: 0; width: 18px; height: 18px; }
 select { font: inherit; border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; min-height: 44px; background: #fff; color: var(--text); }
-.link.danger { color: #a3261b; align-self: flex-start; }
 .warn-text { color: var(--warn-text); }
 .mt { margin-top: 18px; }
 table.compact { min-width: 560px; }
